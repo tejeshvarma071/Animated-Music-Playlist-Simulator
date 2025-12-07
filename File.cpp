@@ -1,360 +1,332 @@
 #include <iostream>
 #include <string>
-#include <unistd.h>   // for sleep(), usleep()
-#include <stdlib.h>   // for system("cls/clear")
 using namespace std;
 
-// ========== ANIMATION FUNCTIONS ==========
-
-void clearScreen() {
-#ifdef _WIN32
-    system("cls");
-#else
-    system("clear");
-#endif
-}
-
-void slowPrint(const string &text, int delay = 20000) {
-    for (char c : text) {
-        cout << c << flush;
-        usleep(delay);
-    }
-}
-
-void loading(const string &msg) {
-    slowPrint(msg, 15000);
-    for (int i = 0; i < 5; i++) {
-        cout << "." << flush;
-        usleep(300000);
-    }
-    cout << "\n";
-}
-
-// ========== SONG STRUCTURE ==========
-
+// ================= NODE STRUCTURE (Circular Doubly Linked List) =================
 struct Song {
-    string title, artist;
+    string title;
+    string artist;
     int duration;
-
-    Song() {}
-    Song(string t, string a, int d) : title(t), artist(a), duration(d) {}
+    Song* next;
+    Song* prev;
 };
 
-// ========== DOUBLY CIRCULAR LINKED LIST NODE ==========
+Song* head = nullptr;
 
-struct Node {
-    Song data;
-    Node *next, *prev;
-    Node(const Song &s) : data(s), next(nullptr), prev(nullptr) {}
-};
+// ================= CREATE NEW SONG NODE =================
+Song* createSong(string t, string a, int d) {
+    Song* s = new Song;
+    s->title = t;
+    s->artist = a;
+    s->duration = d;
+    s->next = s->prev = nullptr;
+    return s;
+}
 
-// ========== PLAYLIST CLASS ==========
+// ================= CHECK IF LIST EMPTY =================
+bool isEmpty() {
+    return head == nullptr;
+}
 
-class MusicPlaylist {
-private:
-    Node *head, *current;
-
-public:
-    MusicPlaylist() : head(nullptr), current(nullptr) {}
-    ~MusicPlaylist() { clear(); }
-
-    bool isEmpty() const { return head == nullptr; }
-
-    int length() const {
-        if (isEmpty()) return 0;
-        int count = 1;
-        Node *temp = head->next;
-        while (temp != head) {
-            count++;
-            temp = temp->next;
-        }
-        return count;
-    }
-
-    void addSongEnd(const Song &s) {
-        loading("Adding song");
-        Node *newNode = new Node(s);
-
-        if (isEmpty()) {
-            head = current = newNode;
-            head->next = head->prev = head;
-        } else {
-            Node *tail = head->prev;
-            newNode->next = head;
-            newNode->prev = tail;
-            tail->next = newNode;
-            head->prev = newNode;
-        }
-        slowPrint("Song added!\n");
-        sleep(1);
-    }
-
-    void addSongFront(const Song &s) {
-        loading("Adding song at front");
-        Node *newNode = new Node(s);
-
-        if (isEmpty()) {
-            head = current = newNode;
-            head->next = head->prev = head;
-        } else {
-            Node *tail = head->prev;
-            newNode->next = head;
-            newNode->prev = tail;
-            tail->next = newNode;
-            head->prev = newNode;
-            head = newNode;
-        }
-        slowPrint("Song added at beginning!\n");
-        sleep(1);
-    }
-
-    void playCurrent() const {
-        if (isEmpty()) {
-            slowPrint("Playlist empty.\n");
-            return;
-        }
-
-        clearScreen();
-        loading("Loading song");
-
-        slowPrint("\n🎵 Now Playing 🎵\n", 15000);
-        slowPrint("Title   : " + current->data.title + "\n");
-        slowPrint("Artist  : " + current->data.artist + "\n");
-        slowPrint("Duration: " + to_string(current->data.duration) + " seconds\n");
-        sleep(2);
-    }
-
-    void nextSong() {
-        if (isEmpty()) {
-            slowPrint("Playlist empty.\n");
-            return;
-        }
-        current = current->next;
-        playCurrent();
-    }
-
-    void previousSong() {
-        if (isEmpty()) {
-            slowPrint("Playlist empty.\n");
-            return;
-        }
-        current = current->prev;
-        playCurrent();
-    }
-
-    bool deleteSongByTitle(const string &title) {
-        if (isEmpty()) return false;
-
-        Node *temp = head;
-        do {
-            if (temp->data.title == title) {
-                loading("Deleting");
-
-                if (temp->next == temp) {
-                    delete temp;
-                    head = current = nullptr;
-                } else {
-                    Node *p = temp->prev;
-                    Node *n = temp->next;
-                    p->next = n;
-                    n->prev = p;
-
-                    if (temp == head) head = n;
-                    if (temp == current) current = n;
-
-                    delete temp;
-                }
-                slowPrint("Song deleted.\n");
-                sleep(1);
-                return true;
-            }
-            temp = temp->next;
-        } while (temp != head);
-
-        return false;
-    }
-
-    bool deleteCurrent() {
-        if (isEmpty()) return false;
-        return deleteSongByTitle(current->data.title);
-    }
-
-    bool setCurrentByTitle(const string &title) {
-        if (isEmpty()) return false;
-
-        Node *temp = head;
-        do {
-            if (temp->data.title == title) {
-                current = temp;
-                slowPrint("Current song updated.\n");
-                sleep(1);
-                return true;
-            }
-            temp = temp->next;
-        } while (temp != head);
-
-        return false;
-    }
-
-    void displayPlaylistForward() const {
-        clearScreen();
-        slowPrint("🎧 Playlist (Forward) 🎧\n", 15000);
-
-        if (isEmpty()) {
-            slowPrint("Playlist empty.\n");
-            return;
-        }
-
-        Node *temp = head;
-        int i = 1;
-        do {
-            cout << i++ << ". " << temp->data.title
-                 << " | " << temp->data.artist
-                 << " | " << temp->data.duration << "s";
-            if (temp == current) cout << "  <-- CURRENT";
-            cout << "\n";
-            temp = temp->next;
-            usleep(50000);
-        } while (temp != head);
-
-        sleep(1);
-    }
-
-    void displayPlaylistBackward() const {
-        clearScreen();
-        slowPrint("🎧 Playlist (Backward) 🎧\n", 15000);
-
-        if (isEmpty()) {
-            slowPrint("Playlist empty.\n");
-            return;
-        }
-
-        Node *temp = head->prev;
-        int i = length();
-        do {
-            cout << i-- << ". " << temp->data.title
-                 << " | " << temp->data.artist
-                 << " | " << temp->data.duration << "s";
-            if (temp == current) cout << "  <-- CURRENT";
-            cout << "\n";
-            temp = temp->prev;
-            usleep(50000);
-        } while (temp != head->prev);
-
-        sleep(1);
-    }
-
-    void clear() {
-        if (isEmpty()) return;
-
-        loading("Clearing playlist");
-
-        Node *temp = head->next;
-        while (temp != head) {
-            Node *del = temp;
-            temp = temp->next;
-            delete del;
-        }
-        delete head;
-
-        head = current = nullptr;
-
-        slowPrint("Playlist cleared.\n");
-        sleep(1);
-    }
-};
-
-// ========== INPUT HELPERS ==========
-
-Song inputSong() {
+// ================= INSERT AT BEGINNING =================
+void insertAtBeginning() {
     cin.ignore();
     string t, a;
     int d;
-
-    slowPrint("Enter title: ");
+    cout << "Enter song title: ";
     getline(cin, t);
-
-    slowPrint("Enter artist: ");
+    cout << "Enter artist: ";
     getline(cin, a);
-
-    slowPrint("Duration (sec): ");
+    cout << "Enter duration: ";
     cin >> d;
 
-    return Song(t, a, d);
+    Song* newSong = createSong(t, a, d);
+
+    if (isEmpty()) {
+        head = newSong;
+        newSong->next = newSong->prev = newSong;
+    } else {
+        Song* last = head->prev;
+
+        newSong->next = head;
+        newSong->prev = last;
+
+        last->next = newSong;
+        head->prev = newSong;
+
+        head = newSong;
+    }
+
+    cout << "Inserted at beginning!\n";
 }
 
-void printMenu() {
-    slowPrint("===== MUSIC PLAYLIST =====\n", 10000);
-    cout << "1. Add song at end\n";
-    cout << "2. Add song at beginning\n";
-    cout << "3. Play current song\n";
-    cout << "4. Next song\n";
-    cout << "5. Previous song\n";
-    cout << "6. Delete by title\n";
-    cout << "7. Delete current\n";
-    cout << "8. Set current by title\n";
-    cout << "9. Show playlist forward\n";
-    cout << "10. Show playlist backward\n";
-    cout << "11. Playlist size\n";
-    cout << "12. Clear playlist\n";
-    cout << "0. Exit\n";
-    slowPrint("Choose: ");
+// ================= INSERT AT END =================
+void insertAtEnd() {
+    cin.ignore();
+    string t, a;
+    int d;
+    cout << "Enter song title: ";
+    getline(cin, t);
+    cout << "Enter artist: ";
+    getline(cin, a);
+    cout << "Enter duration: ";
+    cin >> d;
+
+    Song* newSong = createSong(t, a, d);
+
+    if (isEmpty()) {
+        head = newSong;
+        newSong->next = newSong->prev = newSong;
+    } else {
+        Song* last = head->prev;
+
+        newSong->next = head;
+        newSong->prev = last;
+
+        last->next = newSong;
+        head->prev = newSong;
+    }
+
+    cout << "Inserted at end!\n";
 }
 
-// ========== MAIN PROGRAM ==========
+// ================= INSERT AT ANY POSITION =================
+void insertAtPosition() {
+    if (isEmpty()) {
+        cout << "List empty — inserting at beginning.\n";
+        insertAtBeginning();
+        return;
+    }
 
+    int pos;
+    cout << "Enter position to insert: ";
+    cin >> pos;
+
+    if (pos <= 1) {
+        insertAtBeginning();
+        return;
+    }
+
+    cin.ignore();
+    string t, a;
+    int d;
+    cout << "Enter song title: ";
+    getline(cin, t);
+    cout << "Enter artist: ";
+    getline(cin, a);
+    cout << "Enter duration: ";
+    cin >> d;
+
+    Song* newSong = createSong(t, a, d);
+
+    Song* temp = head;
+    int count = 1;
+
+    // Move until position found or last element reached
+    while (count < pos - 1 && temp->next != head) {
+        temp = temp->next;
+        count++;
+    }
+
+    Song* nextNode = temp->next;
+
+    newSong->next = nextNode;
+    newSong->prev = temp;
+    temp->next = newSong;
+    nextNode->prev = newSong;
+
+    cout << "Inserted at position " << pos << "!\n";
+}
+
+// ================= DELETE AT BEGINNING =================
+void deleteAtBeginning() {
+    if (isEmpty()) {
+        cout << "List empty.\n";
+        return;
+    }
+
+    Song* temp = head;
+
+    if (head->next == head) { // one node
+        head = nullptr;
+    } else {
+        Song* last = head->prev;
+
+        head = head->next;
+        last->next = head;
+        head->prev = last;
+    }
+
+    delete temp;
+    cout << "Deleted first song.\n";
+}
+
+// ================= DELETE AT END =================
+void deleteAtEnd() {
+    if (isEmpty()) {
+        cout << "List empty.\n";
+        return;
+    }
+
+    Song* last = head->prev;
+
+    if (last == head) { // only one node
+        head = nullptr;
+    } else {
+        Song* secondLast = last->prev;
+        secondLast->next = head;
+        head->prev = secondLast;
+    }
+
+    delete last;
+    cout << "Deleted last song.\n";
+}
+
+// ================= DELETE BY POSITION =================
+void deleteAtPosition() {
+    if (isEmpty()) {
+        cout << "List empty.\n";
+        return;
+    }
+
+    int pos;
+    cout << "Enter position to delete: ";
+    cin >> pos;
+
+    if (pos <= 1) {
+        deleteAtBeginning();
+        return;
+    }
+
+    Song* temp = head;
+    int count = 1;
+
+    while (count < pos && temp->next != head) {
+        temp = temp->next;
+        count++;
+    }
+
+    if (count < pos) {
+        cout << "Position out of range.\n";
+        return;
+    }
+
+    Song* prevNode = temp->prev;
+    Song* nextNode = temp->next;
+
+    prevNode->next = nextNode;
+    nextNode->prev = prevNode;
+
+    if (temp == head)
+        head = nextNode;
+
+    delete temp;
+    cout << "Deleted at position " << pos << "!\n";
+}
+
+// ================= SEARCH SONG BY TITLE =================
+void searchSong() {
+    if (isEmpty()) {
+        cout << "Playlist empty.\n";
+        return;
+    }
+
+    cin.ignore();
+    string title;
+    cout << "Enter title to search: ";
+    getline(cin, title);
+
+    Song* temp = head;
+    int pos = 1;
+
+    do {
+        if (temp->title == title) {
+            cout << "\nFound at position " << pos << "!\n";
+            cout << "Artist: " << temp->artist << endl;
+            cout << "Duration: " << temp->duration << " sec\n";
+            return;
+        }
+
+        temp = temp->next;
+        pos++;
+
+    } while (temp != head);
+
+    cout << "Song not found.\n";
+}
+
+// ================= DISPLAY FORWARD =================
+void displayForward() {
+    if (isEmpty()) {
+        cout << "Playlist empty.\n";
+        return;
+    }
+
+    cout << "\n--- Playlist (Forward) ---\n";
+    Song* temp = head;
+    int i = 1;
+
+    do {
+        cout << i++ << ". " << temp->title << " | " 
+             << temp->artist << " | " << temp->duration << "s\n";
+        temp = temp->next;
+    } while (temp != head);
+}
+
+// ================= DISPLAY BACKWARD =================
+void displayBackward() {
+    if (isEmpty()) {
+        cout << "Playlist empty.\n";
+        return;
+    }
+
+    cout << "\n--- Playlist (Backward) ---\n";
+    Song* temp = head->prev;
+    int i = 1;
+
+    do {
+        cout << i++ << ". " << temp->title << " | "
+             << temp->artist << " | " << temp->duration << "s\n";
+        temp = temp->prev;
+    } while (temp->next != head);
+}
+
+// ================= MAIN MENU =================
 int main() {
-    MusicPlaylist playlist;
     int choice;
 
     while (true) {
-        clearScreen();
-        printMenu();
+        cout << "\n==== MUSIC PLAYLIST MENU ====\n";
+        cout << "1. Insert at Beginning\n";
+        cout << "2. Insert at End\n";
+        cout << "3. Insert at Position\n";
+        cout << "4. Delete at Beginning\n";
+        cout << "5. Delete at End\n";
+        cout << "6. Delete at Position\n";
+        cout << "7. Search Song\n";
+        cout << "8. Display Forward\n";
+        cout << "9. Display Backward\n";
+        cout << "0. Exit\n";
+        cout << "Enter choice: ";
         cin >> choice;
 
-        clearScreen();
-
         switch (choice) {
-            case 1: playlist.addSongEnd(inputSong()); break;
-            case 2: playlist.addSongFront(inputSong()); break;
-            case 3: playlist.playCurrent(); break;
-            case 4: playlist.nextSong(); break;
-            case 5: playlist.previousSong(); break;
-            case 6: {
-                cin.ignore();
-                slowPrint("Enter title to delete: ");
-                string t; getline(cin, t);
-                if (!playlist.deleteSongByTitle(t))
-                    slowPrint("Song not found.\n");
-                sleep(1);
-            } break;
-            case 7:
-                if (!playlist.deleteCurrent())
-                    slowPrint("Nothing to delete.\n");
-                sleep(1);
-                break;
-            case 8: {
-                cin.ignore();
-                slowPrint("Enter title: ");
-                string t; getline(cin, t);
-                if (!playlist.setCurrentByTitle(t))
-                    slowPrint("Song not found.\n");
-                sleep(1);
-            } break;
-            case 9: playlist.displayPlaylistForward(); break;
-            case 10: playlist.displayPlaylistBackward(); break;
-            case 11:
-                slowPrint("Playlist size: " + to_string(playlist.length()) + "\n");
-                sleep(2);
-                break;
-            case 12: playlist.clear(); break;
-            case 0:
-                slowPrint("Exiting...\n");
-                sleep(1);
+            case 1: insertAtBeginning(); break;
+            case 2: insertAtEnd(); break;
+            case 3: insertAtPosition(); break;
+            case 4: deleteAtBeginning(); break;
+            case 5: deleteAtEnd(); break;
+            case 6: deleteAtPosition(); break;
+            case 7: searchSong(); break;
+            case 8: displayForward(); break;
+            case 9: displayBackward(); break;
+            case 0: 
+                cout << "Exiting...\n";
                 return 0;
             default:
-                slowPrint("Invalid choice!\n");
-                sleep(1);
+                cout << "Invalid choice.\n";
         }
     }
+
+    return 0;
 }
